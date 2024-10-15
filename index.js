@@ -13,23 +13,6 @@ for (let i = 0; i < collisions.length; i += 60) {
   collisionsMap.push(collisions.slice(i, 60 + i));
 }
 
-// 16(픽셀) * 4(400%)
-class Boundary {
-  static width = 64;
-  static height = 64;
-  constructor({ position }) {
-    this.position = position;
-    this.width = 64;
-    this.height = 64;
-  }
-
-  // 충돌 표시
-  draw() {
-    c.fillStyle = 'rgba(255, 0, 0, 0)';
-    c.fillRect(this.position.x, this.position.y, this.width, this.height);
-  }
-}
-
 const boundaries = [];
 const offset = {
   x: -1055,
@@ -54,6 +37,9 @@ collisionsMap.forEach((row, i) => {
 const mapImage = new Image();
 mapImage.src = './img/map.png';
 
+const foregroundImage = new Image();
+foregroundImage.src = './img/foregroundObjects.png';
+
 const playerDownImage = new Image();
 playerDownImage.src = './img/playerDown.png';
 
@@ -74,33 +60,6 @@ playerDownImage.src = './img/playerDown.png';
 //     playerImage.height
 //   );
 // };
-
-class Sprite {
-  constructor({ position, velocity, image, frames = { max: 1 } }) {
-    this.position = position;
-    this.image = image;
-    this.frames = frames;
-
-    this.image.onload = () => {
-      this.width = this.image.width / this.frames.max;
-      this.height = this.image.height;
-    };
-  }
-
-  draw() {
-    c.drawImage(
-      this.image,
-      0,
-      0,
-      this.image.width,
-      this.image.height,
-      this.position.x,
-      this.position.y,
-      this.image.width,
-      this.image.height
-    );
-  }
-}
 
 const player = new Sprite({
   position: {
@@ -123,6 +82,15 @@ const background = new Sprite({
   image: mapImage,
 });
 
+// 캐릭터보다 앞에 있어서 배경이 캐릭터 위로 가는 부분
+const foreground = new Sprite({
+  position: {
+    x: offset.x,
+    y: offset.y,
+  },
+  image: foregroundImage,
+});
+
 // 지정한 이동 키보드가 true가 될때마다 이동함
 const keys = {
   w: {
@@ -139,7 +107,7 @@ const keys = {
   },
 };
 
-const movebles = [background, ...boundaries];
+const movebles = [background, ...boundaries, foreground];
 
 // 플레이어의 충돌을 알기위한 x좌표 y좌표
 function rectangularCollision({ rectangle1, rectangle2 }) {
@@ -159,6 +127,7 @@ function animate() {
     boundary.draw();
   });
   player.draw();
+  foreground.draw();
 
   let moving = true;
   if (keys.w.pressed && lastKey === 'KeyW') {
