@@ -8,10 +8,12 @@ canvas.height = 576;
 // c.fillRect(0, 0, canvas.width, canvas.height);
 
 const collisionsMap = [];
+// map 이미지 너비가 60타일
 for (let i = 0; i < collisions.length; i += 60) {
   collisionsMap.push(collisions.slice(i, 60 + i));
 }
 
+// 16(픽셀) * 4(400%)
 class Boundary {
   static width = 64;
   static height = 64;
@@ -21,16 +23,17 @@ class Boundary {
     this.height = 64;
   }
 
+  // 충돌 표시
   draw() {
-    c.fillStyle = 'red';
+    c.fillStyle = 'rgba(255, 0, 0, 0)';
     c.fillRect(this.position.x, this.position.y, this.width, this.height);
   }
 }
 
 const boundaries = [];
 const offset = {
-  x: -1050,
-  y: -350,
+  x: -1055,
+  y: -400,
 };
 
 // 참고: 2:30:00 - 충돌구현
@@ -51,8 +54,8 @@ collisionsMap.forEach((row, i) => {
 const mapImage = new Image();
 mapImage.src = './img/map.png';
 
-const playerImage = new Image();
-playerImage.src = './img/playerDown.png';
+const playerDownImage = new Image();
+playerDownImage.src = './img/playerDown.png';
 
 // mapImage.onload = () => {
 //   c.drawImage(mapImage, -1050, -350);
@@ -73,14 +76,44 @@ playerImage.src = './img/playerDown.png';
 // };
 
 class Sprite {
-  constructor({ position, velocity, image }) {
+  constructor({ position, velocity, image, frames = { max: 1 } }) {
     this.position = position;
     this.image = image;
+    this.frames = frames;
+
+    this.image.onload = () => {
+      this.width = this.image.width / this.frames.max;
+      this.height = this.image.height;
+    };
   }
+
   draw() {
-    c.drawImage(this.image, this.position.x, this.position.y);
+    c.drawImage(
+      this.image,
+      0,
+      0,
+      this.image.width,
+      this.image.height,
+      this.position.x,
+      this.position.y,
+      this.image.width,
+      this.image.height
+    );
   }
 }
+
+const player = new Sprite({
+  position: {
+    x: canvas.width / 2 - 48 / 2,
+    y: canvas.height / 2 - 68 / 5,
+  },
+  image: playerDownImage,
+
+  // 움직임이 필요한 캐릭터인 경우 4프레임
+  // frames: {
+  //   max: 4
+  // }
+});
 
 const background = new Sprite({
   position: {
@@ -106,43 +139,131 @@ const keys = {
   },
 };
 
-const testBoundary = new Boundary({
-  position: {
-    x: 400,
-    y: 400,
-  },
-});
+const movebles = [background, ...boundaries];
 
-const movebles = [background, testBoundary];
+// 플레이어의 충돌을 알기위한 x좌표 y좌표
+function rectangularCollision({ rectangle1, rectangle2 }) {
+  return (
+    rectangle1.position.x + rectangle1.width >= rectangle2.position.x &&
+    rectangle1.position.x <= rectangle2.position.x + rectangle2.width &&
+    rectangle1.position.y <= rectangle2.position.y + rectangle2.height &&
+    rectangle1.position.y + rectangle1.height >= rectangle2.position.y
+  );
+}
+
 function animate() {
   // 애니메이션 프레임을 만들기 위한 무한 루프 : requestAnimationFrame
   window.requestAnimationFrame(animate);
   background.draw();
-  // boundaries.forEach((boundary) => {
-  //   boundary.draw();
-  // });
-  testBoundary.draw();
-  c.drawImage(
-    playerImage,
-    0,
-    0,
-    playerImage.width,
-    playerImage.height,
-    canvas.width / 2 - playerImage.width / 2,
-    canvas.height / 2 - playerImage.height / 5,
-    playerImage.width,
-    playerImage.height
-  );
+  boundaries.forEach((boundary) => {
+    boundary.draw();
+  });
+  player.draw();
 
+  let moving = true;
   if (keys.w.pressed && lastKey === 'KeyW') {
-    // movebles.forEach((moveble) => {
-    //   moveble.position.y += 4;
-    // });
-    background.position.y += 4;
-    testBoundary.position.y += 4;
-  } else if (keys.a.pressed && lastKey === 'KeyA') background.position.x += 4;
-  else if (keys.s.pressed && lastKey === 'KeyS') background.position.y -= 4;
-  else if (keys.d.pressed && lastKey === 'KeyD') background.position.x -= 4;
+    // 플레이어와 충돌
+    for (let i = 0; i < boundaries.length; i++) {
+      const boundary = boundaries[i];
+      if (
+        rectangularCollision({
+          rectangle1: player,
+          rectangle2: {
+            ...boundary,
+            position: {
+              x: boundary.position.x,
+              y: boundary.position.y + 4,
+            },
+          },
+        })
+      ) {
+        moving = false;
+        break;
+      }
+    }
+
+    // 플레이어와 충돌 X
+    if (moving) {
+      movebles.forEach((moveble) => {
+        moveble.position.y += 4;
+      });
+    }
+  } else if (keys.a.pressed && lastKey === 'KeyA') {
+    for (let i = 0; i < boundaries.length; i++) {
+      const boundary = boundaries[i];
+      if (
+        rectangularCollision({
+          rectangle1: player,
+          rectangle2: {
+            ...boundary,
+            position: {
+              x: boundary.position.x + 4,
+              y: boundary.position.y,
+            },
+          },
+        })
+      ) {
+        moving = false;
+        break;
+      }
+    }
+
+    if (moving) {
+      movebles.forEach((moveble) => {
+        moveble.position.x += 4;
+      });
+    }
+  } else if (keys.s.pressed && lastKey === 'KeyS') {
+    for (let i = 0; i < boundaries.length; i++) {
+      const boundary = boundaries[i];
+      if (
+        rectangularCollision({
+          rectangle1: player,
+          rectangle2: {
+            ...boundary,
+            position: {
+              x: boundary.position.x,
+              y: boundary.position.y - 4,
+            },
+          },
+        })
+      ) {
+        moving = false;
+        break;
+      }
+    }
+
+    if (moving) {
+      movebles.forEach((moveble) => {
+        moveble.position.y -= 4;
+      });
+    }
+  } else if (keys.d.pressed && lastKey === 'KeyD') {
+    for (let i = 0; i < boundaries.length; i++) {
+      const boundary = boundaries[i];
+      if (
+        rectangularCollision({
+          rectangle1: player,
+          rectangle2: {
+            ...boundary,
+            position: {
+              x: boundary.position.x - 4,
+              y: boundary.position.y,
+            },
+          },
+        })
+      ) {
+        moving = false;
+        break;
+      }
+    }
+
+    if (moving) {
+      movebles.forEach((moveble) => {
+        moveble.position.x -= 4;
+      });
+    }
+  }
 }
 animate();
 
